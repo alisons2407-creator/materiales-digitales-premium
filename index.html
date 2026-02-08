@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Portal Premium con Firebase</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    
+    <style>
+        /* (Mantengo tu estilo visual anterior) */
+        :root { --p-color: #FFB6C1; --s-color: #87CEFA; --accent: #FF69B4; --bg: #fffafb; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; }
+        #lock-screen { position: fixed; inset: 0; background: var(--p-color); z-index: 5000; display: flex; align-items: center; justify-content: center; }
+        .lock-card { background: white; padding: 40px; border-radius: 25px; text-align: center; width: 350px; box-shadow: 0 15px 35px rgba(0,0,0,0.2); }
+        header { background: white; padding: 20px; text-align: center; border-bottom: 3px solid var(--p-color); }
+        .container { max-width: 1000px; margin: auto; padding: 20px; }
+        .categories-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+        .folder { background: white; padding: 30px; border-radius: 20px; text-align: center; cursor: pointer; border: 2px solid var(--s-color); }
+        #admin-panel { display: none; background: #333; color: white; padding: 25px; border-radius: 20px; margin-bottom: 40px; }
+        .file-card { background: white; padding: 15px; border-radius: 15px; border: 1px solid #eee; text-align: center; margin-bottom: 10px; }
+        .btn-dl { background: #25D366; color: white; text-decoration: none; padding: 10px; display: block; border-radius: 10px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="lock-screen">
+    <div class="lock-card">
+        <h2>Bienvenida 🌟</h2>
+        <input type="text" id="u-log" placeholder="Usuario" style="width:80%; padding:10px; margin-bottom:10px;">
+        <input type="password" id="p-log" placeholder="Contraseña" style="width:80%; padding:10px; margin-bottom:10px;">
+        <button onclick="login()" style="width:80%; padding:15px; background:var(--accent); color:white; border:none; border-radius:10px; cursor:pointer;">Entrar</button>
+    </div>
+</div>
+
+<header><h1>📂 Mi Portal de Recursos</h1></header>
+
+<div class="container">
+    <div id="admin-panel">
+        <h3>Panel Admin (Datos en la Nube)</h3>
+        <input type="text" id="n-user" placeholder="Nuevo Usuario">
+        <input type="text" id="n-pass" placeholder="Clave">
+        <input type="number" id="n-time" placeholder="Meses de acceso">
+        <button onclick="crearUser()" style="background:var(--s-color); padding:10px; border:none; border-radius:5px; cursor:pointer;">Registrar Cliente</button>
+        <hr>
+        <input type="text" id="f-name" placeholder="Nombre Archivo">
+        <input type="text" id="f-link" placeholder="Link de descarga">
+        <input type="text" id="f-cat" placeholder="Categoría">
+        <button onclick="subirArchivo()" style="background:var(--accent); padding:10px; border:none; border-radius:5px; cursor:pointer;">Publicar</button>
+        <div id="user-list-admin"></div>
+    </div>
+
+    <div id="categories-view"><div class="categories-grid" id="cat-grid"></div></div>
+    <div id="files-view" style="display:none;">
+        <button onclick="mostrarCategorias()">← Volver</button>
+        <div id="files-grid"></div>
+    </div>
+</div>
+
+<script>
+    // 1. CONFIGURACIÓN DE FIREBASE (PEGA TUS DATOS AQUÍ)
+    const firebaseConfig = {
+        apiKey: "AIzaSyCZ6VFUaNMEFSVxWcV21-fmfdYpdMz1m-k",
+        authDomain: "materiales-digitales-pro.firebaseapp.com",
+        databaseURL: "https://materiales-digitales-pro-default-rtdb.firebaseio.com",
+        projectId: "materiales-digitales-pro",
+        storageBucket: "materiales-digitales-pro.firebasestorage.app",
+        messagingSenderId: "916471037222",
+        appId: "1:916471037222:web:abcc76aa69c14144cf95e7"
+    };
+    
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let esAdmin = false;
+
+    // LOGIN
+    function login() {
+        const u = document.getElementById('u-log').value;
+        const p = document.getElementById('p-log').value;
+
+        if(u === "admin" && p === "459012") {
+            esAdmin = true;
+            document.getElementById('lock-screen').style.display = 'none';
+            document.getElementById('admin-panel').style.display = 'block';
+            cargarDatos();
+            return;
+        }
+
+        db.ref('usuarios/' + u).once('value', (snapshot) => {
+            const data = snapshot.val();
+            if(data && data.pass === p) {
+                const ahora = new Date().getTime();
+                if(ahora > data.exp) {
+                    alert("Suscripción vencida");
+                } else {
+                    document.getElementById('lock-screen').style.display = 'none';
+                    cargarDatos();
+                }
+            } else {
+                alert("Datos incorrectos");
+            }
+        });
+    }
+
+    // CARGAR DATOS DESDE LA NUBE
+    function cargarDatos() {
+        db.ref('archivos').on('value', (snapshot) => {
+            const archivos = snapshot.val() || {};
+            const grid = document.getElementById('cat-grid');
+            grid.innerHTML = '';
+            
+            const cats = [...new Set(Object.values(archivos).map(a => a.cat))];
+            cats.forEach(c => {
+                grid.innerHTML += `<div class="folder" onclick="verCategoria('${c}')">📂<br>${c}</div>`;
+            });
+        });
+    }
+
+    function verCategoria(cat) {
+        document.getElementById('categories-view').style.display = 'none';
+        document.getElementById('files-view').style.display = 'block';
+        const grid = document.getElementById('files-grid');
+        grid.innerHTML = '';
+
+        db.ref('archivos').once('value', (snapshot) => {
+            const archivos = snapshot.val() || {};
+            Object.keys(archivos).forEach(key => {
+                const f = archivos[key];
+                if(f.cat === cat) {
+                    grid.innerHTML += `
+                        <div class="file-card">
+                            <h4>${f.name}</h4>
+                            <a href="${f.link}" class="btn-dl" target="_blank">📥 Descargar</a>
+                            ${esAdmin ? `<button onclick="eliminarF('${key}')">Eliminar</button>` : ''}
+                        </div>`;
+                }
+            });
+        });
+    }
+
+    function mostrarCategorias() {
+        document.getElementById('categories-view').style.display = 'block';
+        document.getElementById('files-view').style.display = 'none';
+    }
+
+    // FUNCIONES ADMIN (ESCRIBEN EN LA NUBE)
+    function crearUser() {
+        const u = document.getElementById('n-user').value;
+        const p = document.getElementById('n-pass').value;
+        const t = parseInt(document.getElementById('n-time').value);
+        const exp = new Date();
+        exp.setMonth(exp.getMonth() + t);
+
+        db.ref('usuarios/' + u).set({
+            pass: p,
+            exp: exp.getTime(),
+            human: exp.toLocaleDateString()
+        });
+        alert("Usuario creado en la nube");
+    }
+
+    function subirArchivo() {
+        const name = document.getElementById('f-name').value;
+        const link = document.getElementById('f-link').value;
+        const cat = document.getElementById('f-cat').value;
+        db.ref('archivos').push({ name, link, cat });
+        alert("Archivo subido a la nube");
+    }
+
+    function eliminarF(key) {
+        if(confirm("¿Borrar?")) db.ref('archivos/' + key).remove();
+    }
+</script>
+</body>
+</html>
