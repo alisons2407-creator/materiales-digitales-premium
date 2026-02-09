@@ -2,25 +2,35 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Portal Premium con Firebase</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
     <style>
-        /* (Mantengo tu estilo visual anterior) */
         :root { --p-color: #FFB6C1; --s-color: #87CEFA; --accent: #FF69B4; --bg: #fffafb; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; }
-        #lock-screen { position: fixed; inset: 0; background: var(--p-color); z-index: 5000; display: flex; align-items: center; justify-content: center; }
-        .lock-card { background: white; padding: 40px; border-radius: 25px; text-align: center; width: 350px; box-shadow: 0 15px 35px rgba(0,0,0,0.2); }
+        
+        /* Ajuste para que el login se vea bien en celular */
+        #lock-screen { position: fixed; inset: 0; background: var(--p-color); z-index: 5000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .lock-card { background: white; padding: 30px; border-radius: 25px; text-align: center; width: 100%; max-width: 350px; box-shadow: 0 15px 35px rgba(0,0,0,0.2); }
+        
         header { background: white; padding: 20px; text-align: center; border-bottom: 3px solid var(--p-color); }
         .container { max-width: 1000px; margin: auto; padding: 20px; }
-        .categories-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
-        .folder { background: white; padding: 30px; border-radius: 20px; text-align: center; cursor: pointer; border: 2px solid var(--s-color); }
+        
+        /* Grid adaptable para celulares */
+        .categories-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; }
+        .folder { background: white; padding: 20px; border-radius: 20px; text-align: center; cursor: pointer; border: 2px solid var(--s-color); font-weight: bold; }
+        
         #admin-panel { display: none; background: #333; color: white; padding: 25px; border-radius: 20px; margin-bottom: 40px; }
-        .file-card { background: white; padding: 15px; border-radius: 15px; border: 1px solid #eee; text-align: center; margin-bottom: 10px; }
-        .btn-dl { background: #25D366; color: white; text-decoration: none; padding: 10px; display: block; border-radius: 10px; font-weight: bold; }
+        #admin-panel input { display: block; width: 100%; margin-bottom: 10px; padding: 8px; box-sizing: border-box; }
+        
+        .file-card { background: white; padding: 15px; border-radius: 15px; border: 1px solid #eee; text-align: center; margin-bottom: 15px; }
+        .btn-dl { background: #25D366; color: white; border: none; padding: 12px; display: block; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px; }
+        .btn-del { background: #ff4d4d; color: white; border: none; padding: 5px 10px; border-radius: 5px; margin-top: 10px; cursor: pointer; }
+        
+        #files-view button { margin-bottom: 20px; padding: 10px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -28,38 +38,36 @@
 <div id="lock-screen">
     <div class="lock-card">
         <h2>Bienvenida 🌟</h2>
-        <input type="text" id="u-log" placeholder="Usuario" style="width:80%; padding:10px; margin-bottom:10px;">
-        <input type="password" id="p-log" placeholder="Contraseña" style="width:80%; padding:10px; margin-bottom:10px;">
-        <button onclick="login()" style="width:80%; padding:15px; background:var(--accent); color:white; border:none; border-radius:10px; cursor:pointer;">Entrar</button>
+        <input type="text" id="u-log" placeholder="Usuario" style="width:100%; padding:10px; margin-bottom:10px; box-sizing: border-box;">
+        <input type="password" id="p-log" placeholder="Contraseña" style="width:100%; padding:10px; margin-bottom:10px; box-sizing: border-box;">
+        <button onclick="login()" style="width:100%; padding:15px; background:var(--accent); color:white; border:none; border-radius:10px; cursor:pointer;">Entrar</button>
     </div>
 </div>
 
-<header><h1>📂 Mi Portal de Recursos</h1></header>
+<header><h1>📂 Mis Recursos</h1></header>
 
 <div class="container">
     <div id="admin-panel">
-        <h3>Panel Admin (Datos en la Nube)</h3>
+        <h3>Panel Admin</h3>
         <input type="text" id="n-user" placeholder="Nuevo Usuario">
         <input type="text" id="n-pass" placeholder="Clave">
         <input type="number" id="n-time" placeholder="Meses de acceso">
-        <button onclick="crearUser()" style="background:var(--s-color); padding:10px; border:none; border-radius:5px; cursor:pointer;">Registrar Cliente</button>
+        <button onclick="crearUser()" style="background:var(--s-color); width: 100%; padding:10px; border:none; border-radius:5px; cursor:pointer; margin-bottom: 20px;">Registrar Cliente</button>
         <hr>
         <input type="text" id="f-name" placeholder="Nombre Archivo">
         <input type="text" id="f-link" placeholder="Link de descarga">
-        <input type="text" id="f-cat" placeholder="Categoría">
-        <button onclick="subirArchivo()" style="background:var(--accent); padding:10px; border:none; border-radius:5px; cursor:pointer;">Publicar</button>
-        <div id="user-list-admin"></div>
+        <input type="text" id="f-cat" placeholder="Categoría (Escribe PREMIUM para protegerlo)">
+        <button onclick="subirArchivo()" style="background:var(--accent); width: 100%; padding:10px; border:none; border-radius:5px; cursor:pointer;">Publicar Archivo</button>
     </div>
 
     <div id="categories-view"><div class="categories-grid" id="cat-grid"></div></div>
     <div id="files-view" style="display:none;">
-        <button onclick="mostrarCategorias()">← Volver</button>
+        <button onclick="mostrarCategorias()">← Volver a categorías</button>
         <div id="files-grid"></div>
     </div>
 </div>
 
 <script>
-    // 1. CONFIGURACIÓN DE FIREBASE (PEGA TUS DATOS AQUÍ)
     const firebaseConfig = {
         apiKey: "AIzaSyCZ6VFUaNMEFSVxWcV21-fmfdYpdMz1m-k",
         authDomain: "materiales-digitales-pro.firebaseapp.com",
@@ -75,11 +83,9 @@
 
     let esAdmin = false;
 
-    // LOGIN
     function login() {
         const u = document.getElementById('u-log').value;
         const p = document.getElementById('p-log').value;
-
         if(u === "admin" && p === "459012") {
             esAdmin = true;
             document.getElementById('lock-screen').style.display = 'none';
@@ -87,30 +93,21 @@
             cargarDatos();
             return;
         }
-
         db.ref('usuarios/' + u).once('value', (snapshot) => {
             const data = snapshot.val();
             if(data && data.pass === p) {
                 const ahora = new Date().getTime();
-                if(ahora > data.exp) {
-                    alert("Suscripción vencida");
-                } else {
-                    document.getElementById('lock-screen').style.display = 'none';
-                    cargarDatos();
-                }
-            } else {
-                alert("Datos incorrectos");
-            }
+                if(ahora > data.exp) { alert("Suscripción vencida"); } 
+                else { document.getElementById('lock-screen').style.display = 'none'; cargarDatos(); }
+            } else { alert("Datos incorrectos"); }
         });
     }
 
-    // CARGAR DATOS DESDE LA NUBE
     function cargarDatos() {
         db.ref('archivos').on('value', (snapshot) => {
             const archivos = snapshot.val() || {};
             const grid = document.getElementById('cat-grid');
             grid.innerHTML = '';
-            
             const cats = [...new Set(Object.values(archivos).map(a => a.cat))];
             cats.forEach(c => {
                 grid.innerHTML += `<div class="folder" onclick="verCategoria('${c}')">📂<br>${c}</div>`;
@@ -129,15 +126,29 @@
             Object.keys(archivos).forEach(key => {
                 const f = archivos[key];
                 if(f.cat === cat) {
+                    // CONEXIÓN CON FUNCIÓN PREMIUM:
                     grid.innerHTML += `
                         <div class="file-card">
                             <h4>${f.name}</h4>
-                            <a href="${f.link}" class="btn-dl" target="_blank">📥 Descargar</a>
-                            ${esAdmin ? `<button onclick="eliminarF('${key}')">Eliminar</button>` : ''}
+                            <button class="btn-dl" onclick="validarAcceso('${f.cat}', '${f.link}')">📥 Descargar</button>
+                            ${esAdmin ? `<button class="btn-del" onclick="eliminarF('${key}')">Eliminar</button>` : ''}
                         </div>`;
                 }
             });
         });
+    }
+
+    function validarAcceso(nombreCategoria, link) {
+        if (nombreCategoria.toUpperCase().includes("PREMIUM")) {
+            let clavePrivada = prompt("Contenido exclusivo 💎. Ingresa la clave de acceso:");
+            if (clavePrivada === "VIP2024") { // <--- Tu clave Premium
+                window.open(link, '_blank');
+            } else {
+                alert("Clave incorrecta.");
+            }
+        } else {
+            window.open(link, '_blank');
+        }
     }
 
     function mostrarCategorias() {
@@ -145,20 +156,14 @@
         document.getElementById('files-view').style.display = 'none';
     }
 
-    // FUNCIONES ADMIN (ESCRIBEN EN LA NUBE)
     function crearUser() {
         const u = document.getElementById('n-user').value;
         const p = document.getElementById('n-pass').value;
         const t = parseInt(document.getElementById('n-time').value);
         const exp = new Date();
         exp.setMonth(exp.getMonth() + t);
-
-        db.ref('usuarios/' + u).set({
-            pass: p,
-            exp: exp.getTime(),
-            human: exp.toLocaleDateString()
-        });
-        alert("Usuario creado en la nube");
+        db.ref('usuarios/' + u).set({ pass: p, exp: exp.getTime(), human: exp.toLocaleDateString() });
+        alert("Usuario creado");
     }
 
     function subirArchivo() {
@@ -166,7 +171,7 @@
         const link = document.getElementById('f-link').value;
         const cat = document.getElementById('f-cat').value;
         db.ref('archivos').push({ name, link, cat });
-        alert("Archivo subido a la nube");
+        alert("Publicado");
     }
 
     function eliminarF(key) {
@@ -174,11 +179,10 @@
     }
 </script>
 
-<a href="https://wa.me/51918940133?text=Hola,%20tengo%20una%20consulta%20sobre%20los%20materiales" 
+<a href="https://wa.me/51918940133?text=Hola,%20tengo%20una%20consulta" 
    style="position:fixed; width:60px; height:60px; bottom:20px; right:20px; background-color:#25d366; color:#FFF; border-radius:50px; text-align:center; font-size:30px; box-shadow: 2px 2px 3px #999; z-index:1000;" 
    target="_blank">
    <i style="margin-top:16px;" class="fa fa-whatsapp"></i>
-   <span style="font-size: 10px; display: block; margin-top: -35px;"></span>
 </a>
 
 </body>
